@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Hint Chatbot - Educational Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar with Assignment Questions -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>Assignment Questions</h3>
+                <button id="toggle-sidebar" class="toggle-btn" title="Toggle sidebar">☰</button>
+            </div>
+            <div id="questions-list" class="questions-list">
+                <div class="loading">Loading questions...</div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h1>PDF Hint Chatbot</h1>
+                <p class="subtitle">Ask questions about your class materials and get helpful hints!</p>
+            </header>
+
+            <!-- Chat Container -->
+            <div class="chat-container">
+                <!-- Messages Area -->
+                <div id="messages" class="messages">
+                <!-- Welcome Message -->
+                <div class="message system-message">
+                    <div class="message-content">
+                        <strong>Welcome!</strong><br>
+                        I'm your educational assistant. I provide hints to help you learn, not direct answers.<br>
+                        Ask me anything about your class materials or assignments!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        id="message-input"
+                        class="message-input"
+                        placeholder="Ask a question about your class materials..."
+                        rows="1"
+                    ></textarea>
+                    <button id="send-button" class="send-button" title="Send message">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13"></path>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-actions">
+                    <button id="clear-button" class="clear-button" title="Clear conversation">
+                        Clear History
+                    </button>
+                    <span id="status" class="status"></span>
+                </div>
+            </div>
+        </div>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <p>💡 Tip: Click questions from the sidebar or type your own. I give hints to help you learn!</p>
+            </footer>
+        </div>
+    </div>
+
+    <script src="/static/js/chat.js?v=3"></script>
+</body>
+</html>
