@@ -15,14 +15,25 @@ class AdvancedPDFExtractor:
 
     def __init__(self):
         """Initialize the extractor."""
-        # Only match actual question patterns (letters, Question X, Problem X, etc.)
-        # Exclude simple numbered items (1., 2., etc.) which are usually scenario/context
+        # Match ALL possible question/item patterns (numbers, letters, keywords)
+        # We'll use content analysis to determine if it's actually a question
         self.question_patterns = [
-            r'^([a-z][\.\)]\s+)',  # a. or a) - actual sub-questions
-            r'^([A-Z][\.\)]\s+)',  # A. or A) - actual sub-questions
-            r'^(Question\s+\d+)',  # Question 1
-            r'^(Problem\s+\d+)',  # Problem 1
-            r'^(Exercise\s+\d+)',  # Exercise 1
+            r'^(\d+[\.\)]\s+)',      # 1. or 1) - could be questions or scenarios
+            r'^([a-z][\.\)]\s+)',    # a. or a) - sub-questions
+            r'^([A-Z][\.\)]\s+)',    # A. or A) - sub-questions
+            r'^(Question\s+\d+)',    # Question 1
+            r'^(Problem\s+\d+)',     # Problem 1
+            r'^(Exercise\s+\d+)',    # Exercise 1
+            r'^([ivxIVX]+[\.\)]\s+)', # i., ii., iii. - Roman numerals
+        ]
+
+        # Question indicator words that suggest this is an actual question
+        self.question_words = [
+            'what', 'why', 'how', 'when', 'where', 'who', 'which',
+            'explain', 'describe', 'define', 'compare', 'discuss',
+            'analyze', 'evaluate', 'calculate', 'prepare', 'compute',
+            'determine', 'identify', 'list', 'state', 'illustrate',
+            'justify', 'prove', 'show', 'demonstrate', 'outline'
         ]
 
     def extract_structured_content(self, pdf_path: str) -> Dict:
@@ -162,9 +173,100 @@ class AdvancedPDFExtractor:
         except:
             return None
 
+    def _is_actual_question(self, text: str) -> bool:
+        """
+        Analyze if a numbered/lettered item is actually a question.
+
+        Args:
+            text: The item text to analyze
+
+        Returns:
+            True if it's likely a question, False if it's likely a scenario/transaction
+        """
+        text_lower = text.lower()
+
+        # Remove the numbering prefix to get the actual content
+        text_without_number = re.sub(r'^[0-9a-zA-Z]+[\.\)]\s*', '', text, flags=re.IGNORECASE)
+        first_word = text_without_number.split()[0].lower() if text_without_number.split() else ''
+
+        # Strong indicators it's a question
+        # 1. Contains question mark
+        if '?' in text:
+            return True
+
+        # 2. Starts with interrogative words (what, why, how, etc.)
+        interrogative_words = ['what', 'why', 'how', 'when', 'where', 'who', 'which']
+        if first_word in interrogative_words:
+            return True
+
+        # 3. Starts with imperative verbs that REQUEST action (not state past actions)
+        imperative_words = [
+            'explain', 'describe', 'define', 'compare', 'discuss',
+            'analyze', 'evaluate', 'calculate', 'prepare', 'compute',
+            'determine', 'identify', 'list', 'state', 'illustrate',
+            'justify', 'prove', 'show', 'demonstrate', 'outline'
+        ]
+        if first_word in imperative_words:
+            return True
+
+        # 4. Check if it contains transaction/scenario indicators (past tense actions)
+        transaction_indicators = [
+            'invested', 'purchased', 'paid', 'received', 'sold',
+            'bought', 'acquired', 'issued', 'collected', 'borrowed',
+            'provided', 'completed', 'recorded', 'transferred'
+        ]
+        # If starts with past tense transaction words, it's likely a scenario item
+        if first_word in transaction_indicators:
+            return False
+
+        # 5. Check for dollar amounts - usually indicates transactions
+        if '$' in text[:50]:  # Check first 50 chars
+            return False
+
+        # 6. Very short items (< 100 chars) that don't have clear transaction markers
+        if len(text) < 100:
+            has_transaction_words = any(word in text_lower for word in transaction_indicators)
+            if not has_transaction_words and not '$' in text:
+                return True
+
+        # Default: if none of the above, treat as scenario/context
+        return False
+
+    def _is_sub_item(self, question_id: str, line: str) -> bool:
+        """
+        Check if this is a sub-item (i, ii, iii) of a parent question.
+
+        Args:
+            question_id: The matched pattern ID (e.g., "iii)")
+            line: The full line text
+
+        Returns:
+            True if this is a sub-item that should be merged with parent
+        """
+        # Check if it's a Roman numeral (just the ID without extra characters)
+        # question_id will be like "iii)" or "i."
+        if re.match(r'^[ivxIVX]+[\.\)]$', question_id.strip()):
+            # If the line is very short (< 100 chars) and doesn't start with question words,
+            # it's likely a sub-item continuation
+            if len(line) < 100:
+                text_without_number = re.sub(r'^[ivxIVX]+[\.\)]\s*', '', line, flags=re.IGNORECASE)
+                first_word = text_without_number.split()[0].lower() if text_without_number.split() else ''
+
+                interrogative_words = ['what', 'why', 'how', 'when', 'where', 'who', 'which']
+                imperative_words = [
+                    'explain', 'describe', 'define', 'compare', 'discuss',
+                    'analyze', 'evaluate', 'calculate', 'prepare', 'compute'
+                ]
+
+                # If doesn't start with question word, it's a sub-item
+                if first_word not in interrogative_words and first_word not in imperative_words:
+                    return True
+
+        return False
+
     def _parse_questions(self, structured_content: Dict) -> List[Dict]:
         """
-        Parse questions from structured content.
+        Parse questions from structured content using intelligent content analysis.
 
         Args:
             structured_content: Structured content dictionary
@@ -198,12 +300,21 @@ class AdvancedPDFExtractor:
                     break
 
             if is_question_start:
-                # Save previous question
-                if current_question and current_text:
-                    current_question['text'] = '\n'.join(current_text)
-                    questions.append(current_question)
+                # Check if this is a sub-item that should be merged with the previous question
+                if self._is_sub_item(question_id, line) and current_question:
+                    # This is a sub-item (like "iii) bonus shares") - merge with current question
+                    current_text.append(line)
+                    continue
 
-                # Start new question
+                # Save previous question if it's actually a question
+                if current_question and current_text:
+                    full_item_text = '\n'.join(current_text)
+                    # Only add if it's actually a question (not a scenario item)
+                    if self._is_actual_question(full_item_text):
+                        current_question['text'] = full_item_text
+                        questions.append(current_question)
+
+                # Start new potential question
                 current_question = {
                     'id': question_id,
                     'full_line': line,
@@ -217,10 +328,12 @@ class AdvancedPDFExtractor:
             elif current_question:
                 current_text.append(line)
 
-        # Save last question
+        # Save last question if it's actually a question
         if current_question and current_text:
-            current_question['text'] = '\n'.join(current_text)
-            questions.append(current_question)
+            full_item_text = '\n'.join(current_text)
+            if self._is_actual_question(full_item_text):
+                current_question['text'] = full_item_text
+                questions.append(current_question)
 
         # Enhance questions with context
         for question in questions:
@@ -231,29 +344,50 @@ class AdvancedPDFExtractor:
     def _enhance_question_context(self, question: Dict, structured_content: Dict):
         """
         Enhance question with context about tables, images, scenarios based on PDF structure.
+        Only mark if the element is actually related to THIS specific question.
 
         Args:
             question: Question dictionary
             structured_content: Full structured content
         """
-        # Check if there are actual TABLES extracted from PDF
-        all_tables = []
-        for page in structured_content['pages']:
-            all_tables.extend(page.get('tables', []))
+        question_text_lower = question['text'].lower()
 
-        if len(all_tables) > 0:
-            question['has_table'] = True
+        # Check for TABLES - only if question explicitly references table/data
+        table_reference_keywords = [
+            'table', 'trial balance', 'balance sheet', 'given below',
+            'following data', 'from the', 'using the data'
+        ]
 
-        # Check if there are actual IMAGES extracted from PDF
-        all_images = []
-        for page in structured_content['pages']:
-            all_images.extend(page.get('images', []))
+        has_table_reference = any(keyword in question_text_lower for keyword in table_reference_keywords)
 
-        if len(all_images) > 0:
-            question['has_image'] = True
+        if has_table_reference:
+            # Check if there are actual tables in the PDF
+            all_tables = []
+            for page in structured_content['pages']:
+                all_tables.extend(page.get('tables', []))
 
-        # Check if there's a SCENARIO (long paragraph before questions)
-        # A scenario is typically a text block > 200 chars that appears before questions
+            if len(all_tables) > 0:
+                question['has_table'] = True
+
+        # Check for IMAGES - only if question explicitly references images/figures
+        image_reference_keywords = [
+            'figure', 'diagram', 'chart', 'graph', 'image',
+            'picture', 'illustration', 'shown'
+        ]
+
+        has_image_reference = any(keyword in question_text_lower for keyword in image_reference_keywords)
+
+        if has_image_reference:
+            # Check if there are actual images in the PDF
+            all_images = []
+            for page in structured_content['pages']:
+                all_images.extend(page.get('images', []))
+
+            if len(all_images) > 0:
+                question['has_image'] = True
+
+        # Check if there's a SCENARIO (numbered transaction list before questions)
+        # A question has scenario context if there are scenario blocks detected
         if len(structured_content.get('scenarios', [])) > 0:
             question['has_scenario'] = True
 
@@ -297,7 +431,7 @@ class AdvancedPDFExtractor:
         return scenarios
 
     def _is_scenario_block(self, text: str) -> bool:
-        """Check if text block is likely a scenario based on PDF structure."""
+        """Check if text block is likely a scenario based on PDF structure and content."""
         text_lower = text.lower()
 
         scenario_indicators = [
@@ -315,13 +449,16 @@ class AdvancedPDFExtractor:
             if indicator in text_lower:
                 return True
 
-        # Check if it's a numbered item (1., 2., etc.) which are usually scenario/transaction descriptions
+        # Check if it's a numbered item that's NOT an actual question
+        # (i.e., transaction descriptions like "1. Stockholders invested...")
         import re
         if re.match(r'^\d+[\.\)]\s+', text.strip()):
-            return True
+            # It's numbered - check if it's actually a question or a scenario
+            if not self._is_actual_question(text):
+                return True
 
-        # Check if it's a longer paragraph (likely context) and not a lettered question
-        if len(text) > 200 and not self._is_question_start(text):
+        # Check if it's a longer paragraph (likely context) and not a question
+        if len(text) > 200 and not self._is_question_start(text) and not self._is_actual_question(text):
             return True
 
         return False
