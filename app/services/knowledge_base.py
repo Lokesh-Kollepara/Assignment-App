@@ -315,6 +315,47 @@ class KnowledgeBase:
         """
         return len(self.materials) > 0 or len(self.assignments) > 0
 
+    def add_single_pdf(self, file_path: str, pdf_type: str) -> dict:
+        """
+        Add a single PDF file to the knowledge base.
+
+        Args:
+            file_path: Path to the PDF file
+            pdf_type: Either 'material' or 'assignment'
+
+        Returns:
+            Dictionary with status and details
+        """
+        pdf_file = Path(file_path)
+
+        if not pdf_file.exists():
+            return {"success": False, "error": "File not found"}
+
+        if not pdf_file.suffix.lower() == '.pdf':
+            return {"success": False, "error": "File must be a PDF"}
+
+        try:
+            if pdf_type == 'assignment':
+                storage = self.assignments
+                category = "Assignments"
+                self._load_assignment_pdf(pdf_file, storage, category)
+            else:
+                storage = self.materials
+                category = "Class Materials"
+                self._load_material_pdf(pdf_file, storage, category)
+
+            return {
+                "success": True,
+                "filename": pdf_file.name,
+                "type": pdf_type,
+                "message": f"Successfully added {pdf_file.name} to {category}"
+            }
+
+        except Exception as e:
+            error_msg = f"{pdf_file.name}: {str(e)}"
+            self.load_errors.append(error_msg)
+            return {"success": False, "error": str(e)}
+
     def get_relevant_context(self, query: str, n_results: int = 5) -> str:
         """
         Get relevant context for a query using semantic search (RAG approach).

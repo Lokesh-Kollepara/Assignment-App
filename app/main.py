@@ -1,10 +1,11 @@
 """
 Main FastAPI application for the PDF Hint Chatbot.
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+import shutil
 from datetime import datetime
 from typing import List
 import os
@@ -18,6 +19,7 @@ from .models import (
     ClearResponse,
     ErrorResponse,
     SessionInfo,
+    UploadResponse,
 )
 from .services.knowledge_base import KnowledgeBase
 from .services.llm_service import LLMService
@@ -298,6 +300,104 @@ async def get_assignment_questions():
     return {"assignments": questions_by_file}
 
 
+@app.post("/api/upload/material", response_model=UploadResponse)
+async def upload_material(file: UploadFile = File(...)):
+    """
+    Upload a class material PDF file.
+
+    Args:
+        file: PDF file to upload
+
+    Returns:
+        UploadResponse with status and details
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are allowed"
+        )
+
+    # Save file to materials directory
+    materials_dir = settings.PDF_MATERIALS_DIR
+    materials_dir.mkdir(parents=True, exist_ok=True)
+    file_path = materials_dir / file.filename
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Add to knowledge base
+        result = knowledge_base.add_single_pdf(str(file_path), "material")
+
+        if result["success"]:
+            return UploadResponse(
+                success=True,
+                filename=file.filename,
+                file_type="material",
+                message=result["message"]
+            )
+        else:
+            # Clean up file if processing failed
+            if file_path.exists():
+                file_path.unlink()
+            raise HTTPException(status_code=500, detail=result["error"])
+
+    except Exception as e:
+        # Clean up file on error
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/upload/assignment", response_model=UploadResponse)
+async def upload_assignment(file: UploadFile = File(...)):
+    """
+    Upload an assignment PDF file.
+
+    Args:
+        file: PDF file to upload
+
+    Returns:
+        UploadResponse with status and details
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are allowed"
+        )
+
+    # Save file to assignments directory
+    assignments_dir = settings.PDF_ASSIGNMENTS_DIR
+    assignments_dir.mkdir(parents=True, exist_ok=True)
+    file_path = assignments_dir / file.filename
+
+    try:
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Add to knowledge base
+        result = knowledge_base.add_single_pdf(str(file_path), "assignment")
+
+        if result["success"]:
+            return UploadResponse(
+                success=True,
+                filename=file.filename,
+                file_type="assignment",
+                message=result["message"]
+            )
+        else:
+            # Clean up file if processing failed
+            if file_path.exists():
+                file_path.unlink()
+            raise HTTPException(status_code=500, detail=result["error"])
+
+    except Exception as e:
+        # Clean up file on error
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Mount static files (frontend)
 if os.path.exists(str(settings.STATIC_DIR)):
     app.mount("/static", StaticFiles(directory=str(settings.STATIC_DIR)), name="static")
@@ -315,6 +415,16 @@ async def serve_frontend():
             "docs": "/docs",
             "health": "/health",
         }
+
+
+@app.get("/chatbot")
+async def serve_chatbot():
+    """Serve the chatbot page."""
+    chatbot_path = settings.STATIC_DIR / "chatbot.html"
+    if os.path.exists(chatbot_path):
+        return FileResponse(str(chatbot_path))
+    else:
+        return {"message": "Chatbot page not found"}
 
 
 # Error handlers

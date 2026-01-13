@@ -4,75 +4,114 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Hint Chatbot - Educational Assistant</title>
-    <link rel="stylesheet" href="/static/css/style.css?v=3">
+    <link rel="stylesheet" href="/static/css/style.css?v=4">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar with Assignment Questions -->
-        <aside id="sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <h3>Assignment Questions</h3>
-                <button id="toggle-sidebar" class="toggle-btn" title="Toggle sidebar">☰</button>
-            </div>
-            <div id="questions-list" class="questions-list">
-                <div class="loading">Loading questions...</div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Header -->
-            <header class="header">
+    <!-- Landing Page -->
+    <div id="landing-page" class="landing-page">
+        <div class="landing-container">
+            <header class="landing-header">
                 <h1>PDF Hint Chatbot</h1>
-                <p class="subtitle">Ask questions about your class materials and get helpful hints!</p>
+                <p class="landing-subtitle">Your intelligent educational assistant for learning through hints</p>
             </header>
 
-            <!-- Chat Container -->
-            <div class="chat-container">
-                <!-- Messages Area -->
-                <div id="messages" class="messages">
-                <!-- Welcome Message -->
-                <div class="message system-message">
-                    <div class="message-content">
-                        <strong>Welcome!</strong><br>
-                        I'm your educational assistant. I provide hints to help you learn, not direct answers.<br>
-                        Ask me anything about your class materials or assignments!
-                    </div>
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="input-container">
-                <div class="input-wrapper">
-                    <textarea
-                        id="message-input"
-                        class="message-input"
-                        placeholder="Ask a question about your class materials..."
-                        rows="1"
-                    ></textarea>
-                    <button id="send-button" class="send-button" title="Send message">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 2L11 13"></path>
-                            <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+            <div class="cards-container">
+                <!-- Upload Assignment Card -->
+                <div class="card" onclick="showUploadModal('assignment')">
+                    <div class="card-icon assignment-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="12" y1="18" x2="12" y2="12"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
                         </svg>
-                    </button>
+                    </div>
+                    <h2 class="card-title">Upload Assignment</h2>
+                    <p class="card-description">Upload your assignment PDFs to get personalized hints and guidance</p>
+                    <span class="card-action">Click to upload</span>
                 </div>
-                <div class="input-actions">
-                    <button id="clear-button" class="clear-button" title="Clear conversation">
-                        Clear History
-                    </button>
-                    <span id="status" class="status"></span>
+
+                <!-- Upload Class Material Card -->
+                <div class="card" onclick="showUploadModal('material')">
+                    <div class="card-icon material-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                            <line x1="12" y1="6" x2="12" y2="12"></line>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Upload Class Material</h2>
+                    <p class="card-description">Add lecture notes, textbooks, and study materials for reference</p>
+                    <span class="card-action">Click to upload</span>
+                </div>
+
+                <!-- Chatbot Card -->
+                <div class="card chatbot-card" onclick="goToChatbot()">
+                    <div class="card-icon chatbot-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            <line x1="9" y1="10" x2="9" y2="10"></line>
+                            <line x1="12" y1="10" x2="12" y2="10"></line>
+                            <line x1="15" y1="10" x2="15" y2="10"></line>
+                        </svg>
+                    </div>
+                    <h2 class="card-title">Start Chatbot</h2>
+                    <p class="card-description">Get hints and guidance for your assignments using AI assistance</p>
+                    <span class="card-action">Open chatbot</span>
                 </div>
             </div>
-        </div>
 
-            <!-- Footer -->
-            <footer class="footer">
-                <p>💡 Tip: Click questions from the sidebar or type your own. I give hints to help you learn!</p>
+            <footer class="landing-footer">
+                <p>Learn smarter with hint-based guidance - we help you discover answers, not give them away!</p>
             </footer>
         </div>
     </div>
 
-    <script src="/static/js/chat.js?v=3"></script>
+    <!-- Upload Modal -->
+    <div id="upload-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Upload File</h2>
+                <button class="modal-close" onclick="closeUploadModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-area" id="upload-area">
+                    <div class="upload-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <p class="upload-text">Drag and drop your PDF here</p>
+                    <p class="upload-subtext">or</p>
+                    <label class="upload-button">
+                        Browse Files
+                        <input type="file" id="file-input" accept=".pdf" hidden>
+                    </label>
+                    <p class="upload-hint">Only PDF files are supported</p>
+                </div>
+                <div id="upload-progress" class="upload-progress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <p id="upload-status" class="upload-status">Uploading...</p>
+                </div>
+                <div id="upload-success" class="upload-success" style="display: none;">
+                    <div class="success-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                    </div>
+                    <p id="success-message" class="success-message">File uploaded successfully!</p>
+                    <button class="upload-another-btn" onclick="resetUpload()">Upload Another</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js?v=4"></script>
 </body>
 </html>

@@ -128,3 +128,22 @@ class ClearResponse(BaseModel):
                 "session_id": "123e4567-e89b-12d3-a456-426614174000",
             }
         }
+
+
+class UploadResponse(BaseModel):
+    """Response model for file upload endpoints."""
+
+    success: bool = Field(..., description="Whether the upload was successful")
+    filename: Optional[str] = Field(None, description="Name of the uploaded file")
+    file_type: Optional[str] = Field(None, description="Type of file (material or assignment)")
+    message: str = Field(..., description="Status message")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "filename": "chapter1_notes.pdf",
+                "file_type": "material",
+                "message": "Successfully added chapter1_notes.pdf to Class Materials",
+            }
+        }
